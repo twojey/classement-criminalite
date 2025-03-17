@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indice d'Oppression Judiciaire et Policière (IOJP)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .chart-container {
+            position: relative;
+            height: 70vh;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .controls button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .controls button:hover {
+            background-color: #45a049;
+        }
+        .info-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        .nav-links {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .nav-links a {
+            margin: 0 10px;
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .table-container {
+            margin-top: 30px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #ddd;
+        }
+        .legend {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 10px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+        .search-container {
+            margin: 20px 0;
+        }
+        #countrySearch {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .category-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .category-filter button {
+            padding: 8px 16px;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .category-filter button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Indice d'Oppression Judiciaire et Policière (IOJP)</h1>
+        
+        <div class="nav-links">
+            <a href="index.html">Voir PIB/Criminalité</a> | 
+            <a href="gini_criminalite.html">Voir Gini/Criminalité</a> |
+            <a href="iojp.html">Voir IOJP</a> |
+            <a href="iojp_criminalite.html">Voir IOJP/Criminalité</a> |
+            <a href="pib_iojp.html">Voir PIB/IOJP</a> |
+            <a href="densite_criminalite.html">Voir Densité/Criminalité</a>
+        </div>
+        
+        <div class="info-panel">
+            <h3>À propos de l'indice IOJP</h3>
+            <p>L'Indice d'Oppression Judiciaire et Policière (IOJP) mesure le niveau d'oppression des systèmes judiciaires et policiers dans différents pays.</p>
+            <p>L'indice est basé sur 5 catégories principales, chacune notée sur 20 points, pour un score total sur 100 :</p>
+            <ol>
+                <li><strong>Contrôles et interventions policières</strong> : Mesure l'ampleur des contrôles, de la surveillance et de l'usage de la force.</li>
+                <li><strong>Sévérité de la répression judiciaire</strong> : Analyse la dureté et l'inégalité des peines prononcées.</li>
+                <li><strong>Inégalités dans le système judiciaire</strong> : Mesure si la justice est équitable pour tous.</li>
+                <li><strong>Transparence et contrôle du système</strong> : Analyse la capacité du système à s'auto-réguler et à éviter les abus.</li>
+                <li><strong>Perception et réactions sociales</strong> : Évalue comment la population perçoit la répression et y réagit.</li>
+            </ol>
+            <p><strong>Interprétation des scores :</strong></p>
+            <ul>
+                <li><strong>0-20</strong> : Justice équitable et police modérée</li>
+                <li><strong>20-40</strong> : Quelques abus, mais système globalement équilibré</li>
+                <li><strong>40-60</strong> : Justice et police partiellement oppressives</li>
+                <li><strong>60-80</strong> : Système très répressif et inégalitaire</li>
+                <li><strong>80-100</strong> : Oppression judiciaire et policière massive</li>
+            </ul>
+        </div>
+        
+        <div class="controls">
+            <button id="resetZoom">Réinitialiser le zoom</button>
+            <button id="sortByScore">Trier par score</button>
+            <button id="sortByCountry">Trier par pays</button>
+        </div>
+        
+        <div class="search-container">
+            <input type="text" id="countrySearch" placeholder="Rechercher un pays...">
+        </div>
+        
+        <div class="category-filter">
+            <button class="filter-btn active" data-category="total">Score Total</button>
+            <button class="filter-btn" data-category="police">Contrôles policiers</button>
+            <button class="filter-btn" data-category="justice">Répression judiciaire</button>
+            <button class="filter-btn" data-category="inequality">Inégalités</button>
+            <button class="filter-btn" data-category="transparency">Transparence</button>
+            <button class="filter-btn" data-category="perception">Perception sociale</button>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="iojpChart"></canvas>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(255, 99, 132, 0.7);"></div>
+                <span>80-100 : Oppression massive</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(255, 159, 64, 0.7);"></div>
+                <span>60-80 : Système très répressif</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(255, 205, 86, 0.7);"></div>
+                <span>40-60 : Partiellement oppressif</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(75, 192, 192, 0.7);"></div>
+                <span>20-40 : Globalement équilibré</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(54, 162, 235, 0.7);"></div>
+                <span>0-20 : Justice équitable</span>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <h3>Tableau des scores IOJP par pays</h3>
+            <table id="iojpTable">
+                <thead>
+                    <tr>
+                        <th>Pays</th>
+                        <th>Contrôles policiers</th>
+                        <th>Répression judiciaire</th>
+                        <th>Inégalités</th>
+                        <th>Transparence</th>
+                        <th>Perception sociale</th>
+                        <th>Score Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Le tableau sera rempli par JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Variables pour stocker les données
+        let iojpData = [];
+        let chart;
+        let currentCategory = 'total';
+        
+        // Fonction pour charger les données CSV
+        async function loadData() {
+            try {
+                // Charger les données IOJP
+                const iojpResponse = await fetch('iojp.csv');
+                const iojpText = await iojpResponse.text();
+                
+                // Parser les données CSV avec PapaParse
+                Papa.parse(iojpText, {
+                    header: true,
+                    complete: function(results) {
+                        iojpData = results.data.filter(row => row.Pays && row['Score IOJP Total']);
+                        
+                        // Trier les données par score décroissant
+                        iojpData.sort((a, b) => parseFloat(b['Score IOJP Total']) - parseFloat(a['Score IOJP Total']));
+                        
+                        // Créer le graphique et le tableau
+                        createChart();
+                        createTable();
+                        
+                        // Ajouter les écouteurs d'événements
+                        setupEventListeners();
+                    }
+                });
+            } catch (error) {
+                console.error('Erreur lors du chargement des données:', error);
+            }
+        }
+        
+        // Fonction pour créer le graphique
+        function createChart() {
+            // Préparer les données pour le graphique
+            const chartData = prepareChartData();
+            
+            // Créer le graphique avec Chart.js
+            const ctx = document.getElementById('iojpChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'Score IOJP',
+                        data: chartData.data,
+                        backgroundColor: chartData.colors,
+                        borderColor: chartData.borderColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const country = iojpData[index];
+                                    
+                                    if (currentCategory === 'total') {
+                                        return `Score IOJP: ${parseFloat(country['Score IOJP Total']).toFixed(1)}`;
+                                    } else if (currentCategory === 'police') {
+                                        return `Contrôles policiers: ${parseFloat(country['Contrôles et interventions policières']).toFixed(1)}/20`;
+                                    } else if (currentCategory === 'justice') {
+                                        return `Répression judiciaire: ${parseFloat(country['Sévérité de la répression judiciaire']).toFixed(1)}/20`;
+                                    } else if (currentCategory === 'inequality') {
+                                        return `Inégalités: ${parseFloat(country['Inégalités dans le système judiciaire']).toFixed(1)}/20`;
+                                    } else if (currentCategory === 'transparency') {
+                                        return `Transparence: ${parseFloat(country['Transparence et contrôle du système']).toFixed(1)}/20`;
+                                    } else if (currentCategory === 'perception') {
+                                        return `Perception sociale: ${parseFloat(country['Perception et réactions sociales']).toFixed(1)}/20`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: currentCategory === 'total' ? 100 : 20,
+                            title: {
+                                display: true,
+                                text: currentCategory === 'total' ? 'Score IOJP (0-100)' : 'Score (0-20)'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                autoSkip: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Fonction pour préparer les données du graphique
+        function prepareChartData() {
+            // Limiter à 30 pays pour la lisibilité du graphique
+            const topCountries = [...iojpData].slice(0, 30);
+            
+            const labels = topCountries.map(country => country.Pays);
+            let data, colors, borderColors;
+            
+            if (currentCategory === 'total') {
+                data = topCountries.map(country => parseFloat(country['Score IOJP Total']));
+                
+                // Définir les couleurs en fonction du score
+                colors = data.map(score => {
+                    if (score >= 80) return 'rgba(255, 99, 132, 0.7)';
+                    if (score >= 60) return 'rgba(255, 159, 64, 0.7)';
+                    if (score >= 40) return 'rgba(255, 205, 86, 0.7)';
+                    if (score >= 20) return 'rgba(75, 192, 192, 0.7)';
+                    return 'rgba(54, 162, 235, 0.7)';
+                });
+                
+                borderColors = data.map(score => {
+                    if (score >= 80) return 'rgba(255, 99, 132, 1)';
+                    if (score >= 60) return 'rgba(255, 159, 64, 1)';
+                    if (score >= 40) return 'rgba(255, 205, 86, 1)';
+                    if (score >= 20) return 'rgba(75, 192, 192, 1)';
+                    return 'rgba(54, 162, 235, 1)';
+                });
+            } else if (currentCategory === 'police') {
+                data = topCountries.map(country => parseFloat(country['Contrôles et interventions policières']));
+                colors = Array(data.length).fill('rgba(255, 99, 132, 0.7)');
+                borderColors = Array(data.length).fill('rgba(255, 99, 132, 1)');
+            } else if (currentCategory === 'justice') {
+                data = topCountries.map(country => parseFloat(country['Sévérité de la répression judiciaire']));
+                colors = Array(data.length).fill('rgba(255, 159, 64, 0.7)');
+                borderColors = Array(data.length).fill('rgba(255, 159, 64, 1)');
+            } else if (currentCategory === 'inequality') {
+                data = topCountries.map(country => parseFloat(country['Inégalités dans le système judiciaire']));
+                colors = Array(data.length).fill('rgba(255, 205, 86, 0.7)');
+                borderColors = Array(data.length).fill('rgba(255, 205, 86, 1)');
+            } else if (currentCategory === 'transparency') {
+                data = topCountries.map(country => parseFloat(country['Transparence et contrôle du système']));
+                colors = Array(data.length).fill('rgba(75, 192, 192, 0.7)');
+                borderColors = Array(data.length).fill('rgba(75, 192, 192, 1)');
+            } else if (currentCategory === 'perception') {
+                data = topCountries.map(country => parseFloat(country['Perception et réactions sociales']));
+                colors = Array(data.length).fill('rgba(54, 162, 235, 0.7)');
+                borderColors = Array(data.length).fill('rgba(54, 162, 235, 1)');
+            }
+            
+            return { labels, data, colors, borderColors };
+        }
+        
+        // Fonction pour créer le tableau
+        function createTable() {
+            const tableBody = document.querySelector('#iojpTable tbody');
+            tableBody.innerHTML = '';
+            
+            iojpData.forEach(country => {
+                const row = document.createElement('tr');
+                
+                // Définir la couleur de fond en fonction du score
+                const score = parseFloat(country['Score IOJP Total']);
+                if (score >= 80) {
+                    row.style.backgroundColor = 'rgba(255, 99, 132, 0.1)';
+                } else if (score >= 60) {
+                    row.style.backgroundColor = 'rgba(255, 159, 64, 0.1)';
+                } else if (score >= 40) {
+                    row.style.backgroundColor = 'rgba(255, 205, 86, 0.1)';
+                } else if (score >= 20) {
+                    row.style.backgroundColor = 'rgba(75, 192, 192, 0.1)';
+                } else {
+                    row.style.backgroundColor = 'rgba(54, 162, 235, 0.1)';
+                }
+                
+                // Ajouter les cellules
+                row.innerHTML = `
+                    <td>${country.Pays}</td>
+                    <td>${parseFloat(country['Contrôles et interventions policières']).toFixed(1)}</td>
+                    <td>${parseFloat(country['Sévérité de la répression judiciaire']).toFixed(1)}</td>
+                    <td>${parseFloat(country['Inégalités dans le système judiciaire']).toFixed(1)}</td>
+                    <td>${parseFloat(country['Transparence et contrôle du système']).toFixed(1)}</td>
+                    <td>${parseFloat(country['Perception et réactions sociales']).toFixed(1)}</td>
+                    <td><strong>${parseFloat(country['Score IOJP Total']).toFixed(1)}</strong></td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // Fonction pour configurer les écouteurs d'événements
+        function setupEventListeners() {
+            // Réinitialiser le zoom
+            document.getElementById('resetZoom').addEventListener('click', () => {
+                chart.resetZoom();
+            });
+            
+            // Trier par score
+            document.getElementById('sortByScore').addEventListener('click', () => {
+                iojpData.sort((a, b) => parseFloat(b['Score IOJP Total']) - parseFloat(a['Score IOJP Total']));
+                updateChart();
+                createTable();
+            });
+            
+            // Trier par pays
+            document.getElementById('sortByCountry').addEventListener('click', () => {
+                iojpData.sort((a, b) => a.Pays.localeCompare(b.Pays));
+                updateChart();
+                createTable();
+            });
+            
+            // Recherche de pays
+            document.getElementById('countrySearch').addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                
+                // Filtrer les lignes du tableau
+                const rows = document.querySelectorAll('#iojpTable tbody tr');
+                rows.forEach(row => {
+                    const countryName = row.cells[0].textContent.toLowerCase();
+                    if (countryName.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Filtres par catégorie
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Mettre à jour la classe active
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    // Mettre à jour la catégorie actuelle
+                    currentCategory = btn.dataset.category;
+                    
+                    // Mettre à jour le graphique
+                    updateChart();
+                });
+            });
+        }
+        
+        // Fonction pour mettre à jour le graphique
+        function updateChart() {
+            // Détruire le graphique existant
+            chart.destroy();
+            
+            // Créer un nouveau graphique
+            createChart();
+        }
+        
+        // Charger les données au chargement de la page
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

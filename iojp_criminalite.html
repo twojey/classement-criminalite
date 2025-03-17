@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relation IOJP/Criminalité</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .chart-container {
+            position: relative;
+            height: 70vh;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .controls button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .controls button:hover {
+            background-color: #45a049;
+        }
+        .info-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        .nav-links {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .nav-links a {
+            margin: 0 10px;
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Relation entre Indice d'Oppression Judiciaire et Policière et Indice de Criminalité</h1>
+        
+        <div class="nav-links">
+            <a href="index.html">Voir PIB/Criminalité</a> | 
+            <a href="gini_criminalite.html">Voir Gini/Criminalité</a> |
+            <a href="iojp.html">Voir IOJP</a> |
+            <a href="iojp_criminalite.html">Voir IOJP/Criminalité</a> |
+            <a href="pib_iojp.html">Voir PIB/IOJP</a> |
+            <a href="densite_criminalite.html">Voir Densité/Criminalité</a>
+        </div>
+        
+        <div class="controls">
+            <button id="resetZoom">Réinitialiser le zoom</button>
+            <button id="toggleRegression">Afficher/Masquer ligne de tendance</button>
+            <button id="toggleLabels">Afficher/Masquer étiquettes</button>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="scatterChart"></canvas>
+        </div>
+        
+        <div class="info-panel">
+            <h3>Informations</h3>
+            <p>Ce graphique montre la relation entre l'Indice d'Oppression Judiciaire et Policière (IOJP) et l'indice de criminalité pour différents pays.</p>
+            <p>L'IOJP mesure le niveau d'oppression des systèmes judiciaires et policiers (0 = justice équitable, 100 = oppression maximale).</p>
+            <p>Chaque point représente un pays. Passez votre souris sur un point pour voir les détails.</p>
+            <p><strong>Nombre de pays affichés: </strong><span id="countryCount">0</span></p>
+            <p><strong>Coefficient de corrélation: </strong><span id="correlation">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Variables pour stocker les données
+        let criminaliteData = {};
+        let iojpData = {};
+        let chart;
+        let showRegression = false;
+        let showLabels = false;
+        
+        // Fonction pour charger les données CSV
+        async function loadData() {
+            try {
+                // Charger les données de criminalité
+                const criminaliteResponse = await fetch('criminalite_securite.csv');
+                const criminaliteText = await criminaliteResponse.text();
+                
+                // Charger les données de IOJP
+                const iojpResponse = await fetch('iojp.csv');
+                const iojpText = await iojpResponse.text();
+                
+                // Parser les données CSV avec PapaParse
+                Papa.parse(criminaliteText, {
+                    header: true,
+                    complete: function(results) {
+                        results.data.forEach(row => {
+                            if (row.Pays) {
+                                criminaliteData[row.Pays] = {
+                                    indice: parseFloat(row['Indice de Criminalité'].replace(',', '.')),
+                                    classement: parseInt(row.Classement)
+                                };
+                            }
+                        });
+                        
+                        // Parser les données de IOJP après avoir chargé les données de criminalité
+                        Papa.parse(iojpText, {
+                            header: true,
+                            complete: function(results) {
+                                results.data.forEach(row => {
+                                    if (row.Pays && row['Score IOJP Total']) {
+                                        iojpData[row.Pays] = {
+                                            iojp: parseFloat(row['Score IOJP Total']),
+                                            police: parseFloat(row['Contrôles et interventions policières']),
+                                            justice: parseFloat(row['Sévérité de la répression judiciaire']),
+                                            inegalites: parseFloat(row['Inégalités dans le système judiciaire']),
+                                            transparence: parseFloat(row['Transparence et contrôle du système']),
+                                            perception: parseFloat(row['Perception et réactions sociales'])
+                                        };
+                                    }
+                                });
+                                
+                                // Créer le graphique une fois les deux ensembles de données chargés
+                                createChart();
+                            }
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error('Erreur lors du chargement des données:', error);
+            }
+        }
+        
+        // Fonction pour calculer la corrélation entre deux séries de données
+        function calculateCorrelation(data) {
+            const n = data.length;
+            if (n === 0) return 0;
+            
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+            
+            for (let i = 0; i < n; i++) {
+                const x = data[i].x;
+                const y = data[i].y;
+                
+                sumX += x;
+                sumY += y;
+                sumXY += x * y;
+                sumX2 += x * x;
+                sumY2 += y * y;
+            }
+            
+            const numerator = n * sumXY - sumX * sumY;
+            const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+            
+            if (denominator === 0) return 0;
+            return numerator / denominator;
+        }
+        
+        // Fonction pour calculer la régression linéaire
+        function calculateLinearRegression(data) {
+            const n = data.length;
+            if (n === 0) return { slope: 0, intercept: 0 };
+            
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            
+            for (let i = 0; i < n; i++) {
+                const x = data[i].x;
+                const y = data[i].y;
+                
+                sumX += x;
+                sumY += y;
+                sumXY += x * y;
+                sumX2 += x * x;
+            }
+            
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            
+            return { slope, intercept };
+        }
+        
+        // Fonction pour normaliser les noms de pays pour la correspondance
+        function normalizeCountryName(name) {
+            const replacements = {
+                'Côte d\'Ivoire': 'Cote d\'Ivoire',
+                'États Unis': 'United States',
+                'États-Unis': 'United States',
+                'Royaume-Uni': 'United Kingdom',
+                'Nouvelle-Zélande': 'New Zealand',
+                'Corée du Sud': 'Korea',
+                'Corée du Nord': 'North Korea',
+                'Émirats Arabes Unis': 'United Arab Emirates',
+                'Égypte': 'Egypt',
+                'République Dominicaine': 'Dominican Republic',
+                'Bosnie Herzégovine': 'Bosnia and Herzegovina',
+                'Macédoine du Nord': 'North Macedonia',
+                'Kirghizistan': 'Kyrgyz Republic',
+                'Biélorussie': 'Belarus',
+                'La Belgique': 'Belgium',
+                'Pays-Bas': 'Netherlands',
+                'L\'Autriche': 'Austria',
+                'République Tchèque': 'Czechia',
+                'La Slovénie': 'Slovenia',
+                'Emirats Arabes Unis': 'United Arab Emirates',
+                'Arabie Saoudite': 'Saudi Arabia',
+                'Koweit': 'Kuwait',
+                'Bahreïn': 'Bahrain',
+                'Trinité-et-Tobago': 'Trinidad and Tobago',
+                'Le Salvador': 'El Salvador',
+                'Congo Rep.': 'Congo Rep',
+                'Congo Dem. Rep.': 'Congo Dem Rep'
+            };
+            
+            // Remplacer les noms connus
+            let normalized = name;
+            for (const [key, value] of Object.entries(replacements)) {
+                if (name === key) {
+                    normalized = value;
+                    break;
+                }
+            }
+            
+            return normalized
+                .toLowerCase()
+                .replace(/é|è|ê|ë/g, 'e')
+                .replace(/à|â|ä/g, 'a')
+                .replace(/ù|û|ü/g, 'u')
+                .replace(/ô|ö/g, 'o')
+                .replace(/î|ï/g, 'i')
+                .replace(/ç/g, 'c')
+                .replace(/\s+/g, '')
+                .replace(/[^a-z0-9]/g, '');
+        }
+        
+        // Fonction pour créer le graphique
+        function createChart() {
+            // Préparer les données pour le graphique
+            const chartData = [];
+            const countries = new Set();
+            
+            // Trouver les pays qui existent dans les deux ensembles de données
+            for (const pays in criminaliteData) {
+                // Normaliser les noms de pays pour la correspondance
+                const normalizedPays = normalizeCountryName(pays);
+                
+                // Chercher une correspondance dans les données IOJP
+                let matchFound = false;
+                let iojpPays = '';
+                
+                for (const iojpPaysName in iojpData) {
+                    const normalizedIojpPays = normalizeCountryName(iojpPaysName);
+                    
+                    if (normalizedPays === normalizedIojpPays) {
+                        iojpPays = iojpPaysName;
+                        matchFound = true;
+                        break;
+                    }
+                }
+                
+                if (matchFound && iojpData[iojpPays]) {
+                    chartData.push({
+                        x: iojpData[iojpPays].iojp,
+                        y: criminaliteData[pays].indice,
+                        pays: pays,
+                        iojpPays: iojpPays,
+                        iojpValue: iojpData[iojpPays].iojp,
+                        police: iojpData[iojpPays].police,
+                        justice: iojpData[iojpPays].justice,
+                        inegalites: iojpData[iojpPays].inegalites,
+                        transparence: iojpData[iojpPays].transparence,
+                        perception: iojpData[iojpPays].perception,
+                        classementCriminalite: criminaliteData[pays].classement
+                    });
+                    countries.add(pays);
+                }
+            }
+            
+            // Mettre à jour le compteur de pays
+            document.getElementById('countryCount').textContent = countries.size;
+            
+            // Calculer la corrélation
+            const correlation = calculateCorrelation(chartData);
+            document.getElementById('correlation').textContent = correlation.toFixed(3);
+            
+            // Calculer la régression linéaire
+            const regression = calculateLinearRegression(chartData);
+            
+            // Créer les points pour la ligne de régression
+            const regressionData = [];
+            if (chartData.length > 0) {
+                // Trouver les valeurs min et max de x
+                const xValues = chartData.map(point => point.x);
+                const minX = Math.min(...xValues);
+                const maxX = Math.max(...xValues);
+                
+                // Créer deux points pour la ligne de régression
+                regressionData.push({
+                    x: minX,
+                    y: regression.slope * minX + regression.intercept
+                });
+                regressionData.push({
+                    x: maxX,
+                    y: regression.slope * maxX + regression.intercept
+                });
+            }
+            
+            // Créer le graphique avec Chart.js
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Pays',
+                            data: chartData,
+                            backgroundColor: chartData.map(point => {
+                                // Couleur basée sur le score IOJP
+                                if (point.x >= 80) return 'rgba(255, 99, 132, 0.6)';
+                                if (point.x >= 60) return 'rgba(255, 159, 64, 0.6)';
+                                if (point.x >= 40) return 'rgba(255, 205, 86, 0.6)';
+                                if (point.x >= 20) return 'rgba(75, 192, 192, 0.6)';
+                                return 'rgba(54, 162, 235, 0.6)';
+                            }),
+                            borderColor: chartData.map(point => {
+                                // Couleur basée sur le score IOJP
+                                if (point.x >= 80) return 'rgba(255, 99, 132, 1)';
+                                if (point.x >= 60) return 'rgba(255, 159, 64, 1)';
+                                if (point.x >= 40) return 'rgba(255, 205, 86, 1)';
+                                if (point.x >= 20) return 'rgba(75, 192, 192, 1)';
+                                return 'rgba(54, 162, 235, 1)';
+                            }),
+                            borderWidth: 1,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        },
+                        {
+                            label: 'Ligne de tendance',
+                            data: regressionData,
+                            type: 'line',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0,
+                            hidden: !showRegression
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    if (context.datasetIndex === 0) { // Points de données
+                                        return [
+                                            `Pays: ${point.pays}`,
+                                            `Indice IOJP: ${point.iojpValue.toFixed(1)}`,
+                                            `Indice de criminalité: ${point.y.toFixed(1)} (rang: ${point.classementCriminalite})`,
+                                            `Contrôles policiers: ${point.police.toFixed(1)}/20`,
+                                            `Répression judiciaire: ${point.justice.toFixed(1)}/20`,
+                                            `Inégalités: ${point.inegalites.toFixed(1)}/20`,
+                                            `Transparence: ${point.transparence.toFixed(1)}/20`,
+                                            `Perception sociale: ${point.perception.toFixed(1)}/20`
+                                        ];
+                                    } else { // Ligne de régression
+                                        return `Valeur: (${point.x.toFixed(1)}, ${point.y.toFixed(1)})`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Indice d\'Oppression Judiciaire et Policière (IOJP)'
+                            },
+                            min: 30,
+                            max: 100
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Indice de Criminalité'
+                            },
+                            min: 0,
+                            max: 100
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'customPlugin',
+                    afterDraw: (chart) => {
+                        if (!showLabels) return;
+                        
+                        const ctx = chart.ctx;
+                        chart.data.datasets[0].data.forEach((datapoint, index) => {
+                            const meta = chart.getDatasetMeta(0);
+                            const element = meta.data[index];
+                            
+                            // Position du point
+                            const position = element.getCenterPoint();
+                            
+                            // Configurer le texte
+                            ctx.fillStyle = 'black';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            ctx.font = '10px Arial';
+                            
+                            // Afficher le nom du pays
+                            ctx.fillText(datapoint.pays, position.x, position.y - 10);
+                        });
+                    }
+                }]
+            });
+            
+            // Ajouter des écouteurs d'événements pour les boutons
+            document.getElementById('resetZoom').addEventListener('click', resetZoom);
+            document.getElementById('toggleRegression').addEventListener('click', toggleRegression);
+            document.getElementById('toggleLabels').addEventListener('click', toggleLabels);
+        }
+        
+        // Fonction pour réinitialiser le zoom
+        function resetZoom() {
+            chart.resetZoom();
+        }
+        
+        // Fonction pour basculer l'affichage de la ligne de régression
+        function toggleRegression() {
+            showRegression = !showRegression;
+            chart.data.datasets[1].hidden = !showRegression;
+            chart.update();
+        }
+        
+        // Fonction pour basculer l'affichage des étiquettes
+        function toggleLabels() {
+            showLabels = !showLabels;
+            chart.update();
+        }
+        
+        // Charger les données au chargement de la page
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>
