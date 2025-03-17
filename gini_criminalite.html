@@ -133,6 +133,8 @@
                             }
                         });
                         
+                        console.log(`Nombre de pays dans les données de criminalité: ${Object.keys(criminaliteData).length}`);
+                        
                         // Parser les données de Gini après avoir chargé les données de criminalité
                         Papa.parse(giniText, {
                             header: true,
@@ -146,8 +148,13 @@
                                     }
                                 });
                                 
+                                console.log(`Nombre de pays dans les données Gini: ${Object.keys(giniData).length}`);
+                                
                                 // Créer le graphique une fois les deux ensembles de données chargés
                                 createChart();
+                                
+                                // Afficher les pays sans correspondance
+                                displayUnmatchedCountries();
                             }
                         });
                     }
@@ -210,6 +217,7 @@
             // Préparer les données pour le graphique
             const chartData = [];
             const countries = new Set();
+            const matchedCountries = new Set();
             
             // Trouver les pays qui existent dans les deux ensembles de données
             for (const pays in criminaliteData) {
@@ -226,6 +234,7 @@
                     if (normalizedPays === normalizedGiniPays) {
                         giniPays = giniPaysName;
                         matchFound = true;
+                        matchedCountries.add(pays);
                         break;
                     }
                 }
@@ -246,6 +255,8 @@
             
             // Mettre à jour le compteur de pays
             document.getElementById('countryCount').textContent = countries.size;
+            console.log(`Nombre de pays correspondants: ${countries.size}`);
+            console.log(`Pourcentage de correspondance: ${(countries.size / Object.keys(criminaliteData).length * 100).toFixed(2)}%`);
             
             // Calculer la corrélation
             const correlation = calculateCorrelation(chartData);
@@ -369,7 +380,8 @@
                 'États-Unis': 'United States',
                 'Royaume-Uni': 'United Kingdom',
                 'Nouvelle-Zélande': 'New Zealand',
-                'Corée du Sud': 'Korea',
+                'Corée du Sud': 'Korea, Rep.',
+                'Corée du Sud': 'South Korea',
                 'Corée du Nord': 'North Korea',
                 'Émirats Arabes Unis': 'United Arab Emirates',
                 'Égypte': 'Egypt',
@@ -390,7 +402,80 @@
                 'Trinité-et-Tobago': 'Trinidad and Tobago',
                 'Le Salvador': 'El Salvador',
                 'Congo Rep.': 'Congo Rep',
-                'Congo Dem. Rep.': 'Congo Dem Rep'
+                'Congo Dem. Rep.': 'Congo Dem Rep',
+                'Afrique du Sud': 'South Africa',
+                'Allemagne': 'Germany',
+                'Espagne': 'Spain',
+                'France': 'France',
+                'Italie': 'Italy',
+                'Japon': 'Japan',
+                'Brésil': 'Brazil',
+                'Mexique': 'Mexico',
+                'Russie': 'Russian Federation',
+                'Chine': 'China',
+                'Inde': 'India',
+                'Australie': 'Australia',
+                'Canada': 'Canada',
+                'Suisse': 'Switzerland',
+                'Suède': 'Sweden',
+                'Norvège': 'Norway',
+                'Finlande': 'Finland',
+                'Danemark': 'Denmark',
+                'Irlande': 'Ireland',
+                'Portugal': 'Portugal',
+                'Grèce': 'Greece',
+                'Turquie': 'Türkiye',
+                'Turquie': 'Turkey',
+                'Pologne': 'Poland',
+                'Ukraine': 'Ukraine',
+                'Roumanie': 'Romania',
+                'Hongrie': 'Hungary',
+                'Bulgarie': 'Bulgaria',
+                'Croatie': 'Croatia',
+                'Serbie': 'Serbia',
+                'Slovaquie': 'Slovak Republic',
+                'Slovénie': 'Slovenia',
+                'Estonie': 'Estonia',
+                'Lettonie': 'Latvia',
+                'Lituanie': 'Lithuania',
+                'Chypre': 'Cyprus',
+                'Malte': 'Malta',
+                'Luxembourg': 'Luxembourg',
+                'Islande': 'Iceland',
+                'Albanie': 'Albania',
+                'Monténégro': 'Montenegro',
+                'Macédoine': 'North Macedonia',
+                'Bosnie-Herzégovine': 'Bosnia and Herzegovina',
+                'Kosovo': 'Kosovo',
+                'Moldavie': 'Moldova',
+                'Géorgie': 'Georgia',
+                'Arménie': 'Armenia',
+                'Azerbaïdjan': 'Azerbaijan',
+                'Kazakhstan': 'Kazakhstan',
+                'Ouzbékistan': 'Uzbekistan',
+                'Turkménistan': 'Turkmenistan',
+                'Tadjikistan': 'Tajikistan',
+                'Kirghizstan': 'Kyrgyz Republic',
+                'Mongolie': 'Mongolia',
+                'Népal': 'Nepal',
+                'Bangladesh': 'Bangladesh',
+                'Sri Lanka': 'Sri Lanka',
+                'Pakistan': 'Pakistan',
+                'Afghanistan': 'Afghanistan',
+                'Iran': 'Iran, Islamic Rep.',
+                'Irak': 'Iraq',
+                'Syrie': 'Syrian Arab Republic',
+                'Jordanie': 'Jordan',
+                'Liban': 'Lebanon',
+                'Israël': 'Israel',
+                'Palestine': 'West Bank and Gaza',
+                'Arabie saoudite': 'Saudi Arabia',
+                'Yémen': 'Yemen, Rep.',
+                'Oman': 'Oman',
+                'Qatar': 'Qatar',
+                'Koweït': 'Kuwait',
+                'Bahreïn': 'Bahrain',
+                'Émirats arabes unis': 'United Arab Emirates'
             };
             
             // Remplacer les noms connus
@@ -424,6 +509,51 @@
             showRegression = !showRegression;
             chart.data.datasets[1].hidden = !showRegression;
             chart.update();
+        }
+        
+        // Fonction pour afficher les pays sans correspondance
+        function displayUnmatchedCountries() {
+            const unmatchedCriminalite = [];
+            const unmatchedGini = [];
+            
+            // Trouver les pays dans les données de criminalité qui n'ont pas de correspondance dans les données Gini
+            for (const pays in criminaliteData) {
+                const normalizedPays = normalizeCountryName(pays);
+                let matchFound = false;
+                
+                for (const giniPaysName in giniData) {
+                    const normalizedGiniPays = normalizeCountryName(giniPaysName);
+                    if (normalizedPays === normalizedGiniPays) {
+                        matchFound = true;
+                        break;
+                    }
+                }
+                
+                if (!matchFound) {
+                    unmatchedCriminalite.push(pays);
+                }
+            }
+            
+            // Trouver les pays dans les données Gini qui n'ont pas de correspondance dans les données de criminalité
+            for (const giniPaysName in giniData) {
+                const normalizedGiniPays = normalizeCountryName(giniPaysName);
+                let matchFound = false;
+                
+                for (const pays in criminaliteData) {
+                    const normalizedPays = normalizeCountryName(pays);
+                    if (normalizedPays === normalizedGiniPays) {
+                        matchFound = true;
+                        break;
+                    }
+                }
+                
+                if (!matchFound) {
+                    unmatchedGini.push(giniPaysName);
+                }
+            }
+            
+            console.log("Pays dans les données de criminalité sans correspondance dans les données Gini:", unmatchedCriminalite);
+            console.log("Pays dans les données Gini sans correspondance dans les données de criminalité:", unmatchedGini);
         }
         
         // Charger les données au chargement de la page
